@@ -70,10 +70,42 @@ export const Export: React.FC<ExportProps> = ({selectedStores, selectedValues, s
 
 
     return (
-        <div className="h-full space-y-3 bg-dark-secondary p-4 rounded-xl">
-            <div className="flex items-center justify-between">
+        <div className="h-full grid grid-rows-[1fr_50px] space-y-3 bg-dark-secondary p-4 rounded-xl overflow-hidden">
+            <div className="overmin-h-0 w-full overflow-auto scrollbar-pill rounded bg-dark-primary">
+                <table className="w-full h-full border-collapse text-left bg-dark-primary rounded overflow-y-auto scrollbar-pill">
+                    <thead className="border-b border-b-zinc-700/50"> 
+                        <tr>
+                        {grid[0]?.map((header, idx) => (
+                            <th
+                                key={idx}
+                                className="sticky top-0 z-10 bg-dark-primary px-3 py-2 font-semibold whitespace-nowrap not-last:border-r not-last:border-zinc-700/50"
+                            >
+                            {header}
+                            </th>
+                        ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {grid.slice(1).map((row, rowIdx) => (
+                        <tr key={rowIdx} className="hover:bg-blue-50/40 h-10">
+                            {row.map((cell, cellIdx) => (
+                            <td
+                                key={cellIdx}
+                                className={`not-last:border-r not-last:border-zinc-700/50 px-3 py-1.5 whitespace-nowrap ${
+                                typeof cell === 'number' ? 'text-right tabular-nums' : 'font-bold'
+                                }`}
+                            >
+                                {cell}
+                            </td>
+                            ))}
+                        </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <div className="flex items-end justify-between w-full h-full">
                 <span className="text-xs font-semibol">
-                Export ({grid.length - 1} rows)
+                    Export ({grid.length - 1} rows)
                 </span>
                 <button
                     type="button"
@@ -81,41 +113,8 @@ export const Export: React.FC<ExportProps> = ({selectedStores, selectedValues, s
                     onClick={handleExportExcel}
                     className="px-4 py-1.5 rounded bg-emerald-600 text-white text-xs font-semibold disabled:opacity-40 hover:bg-emerald-700"
                 >
-                    Export to Excel
+                    Download
                 </button>
-            </div>
-
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-xs text-left bg-dark-primary rounded">
-                <thead className="border-b border-b-zinc-700/50"> 
-                    <tr>
-                    {grid[0]?.map((header, idx) => (
-                        <th
-                            key={idx}
-                            className=" px-3 py-2 font-semibold whitespace-nowrap rounded-lg not-last:border-r not-last:border-zinc-700/50"
-                        >
-                        {header}
-                        </th>
-                    ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {grid.slice(1).map((row, rowIdx) => (
-                    <tr key={rowIdx} className="hover:bg-blue-50/40 h-10">
-                        {row.map((cell, cellIdx) => (
-                        <td
-                            key={cellIdx}
-                            className={`not-last:border-r not-last:border-zinc-700/50 px-3 py-1.5 whitespace-nowrap ${
-                            typeof cell === 'number' ? 'text-right tabular-nums' : 'font-bold'
-                            }`}
-                        >
-                            {cell}
-                        </td>
-                        ))}
-                    </tr>
-                    ))}
-                </tbody>
-                </table>
             </div>
         </div>
     )

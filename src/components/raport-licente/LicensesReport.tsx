@@ -7,12 +7,12 @@ export const LicensesReport = () => {
 
   const [snapshots, setSnapshots] = useState<StoreSnapshot[]>([]);
   const [selectedStores, setSelectedStores] = useState<StoreSnapshot[]>([]);
-  const [selectedValues, setSelectedValues] = useState<string[]>([]);
+  const [selectedValues, setSelectedValues] = useState<string[]>(['currentBasic', 'currentESN']);
 
 
   return (
     <div className='w-full h-full grid grid-rows-[60px_1fr] gap-2 overflow-hidden'>
-      <Import onImport={(newRows) => setSnapshots((prev) => [...prev, ...newRows])} />
+      <Import onImport={(newRows) => setSnapshots([...newRows])} />
       <div className='grid grid-cols-2 gap-2 overflow-hidden w-full h-full'>
         <Table snapshots={snapshots} selectedStores={selectedStores} selectedValues={selectedValues} setSelectedStores={setSelectedStores} setSelectedValues={setSelectedValues} />
         <Export selectedStores={selectedStores} snapshots={snapshots} selectedValues={selectedValues} />
