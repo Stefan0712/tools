@@ -1,6 +1,7 @@
-import { GraphRing } from 'lucide-react';
+import { GraphRing, Smartphone } from 'lucide-react';
 import { useState } from 'react';
 import { LicensesReport } from './components/raport-licente/LicensesReport';
+import { DispozitiveIstyle } from './components/raport-dispozitive-istyle/DispozitiveIstyle';
 
 function App() {
 
@@ -13,9 +14,14 @@ function App() {
         <button onClick={()=>setCurrentTool('licenses-report')}>
           <GraphRing />
         </button>
+        <button onClick={()=>setCurrentTool('istyle-devices')}>
+          <Smartphone />
+        </button>
       </div>
       <div className='w-full h-full p-2 overflow-hidden'>
-        {currentTool === 'licenses-report' ? <LicensesReport /> : <p>No tool selected</p>}
+        {currentTool === 'licenses-report' ? <LicensesReport /> : 
+          currentTool === 'istyle-devices' ? <DispozitiveIstyle /> :
+        <p>No tool selected</p>}
       </div>
     </div>
   )
