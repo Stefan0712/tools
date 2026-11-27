@@ -25,10 +25,14 @@ const ALL_STATES = [
   'UNCLASSIFIED_ACTION_REQUIRED',
   'VANDUT_LICITATIE',
 ];
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
 
 const ALL_OFFER_STATUSES = ['ACCEPTED', 'REJECTED', 'NON-CONFORM', 'BLANK'];
 
-const EXCLUDED_FROM_TOTAL = ['COMANDA_ANULATA'];
 const EXCLUDED_FROM_ARRIVED = [
   'COMANDA_ANULATA',
   'IN_LIVRARE',
@@ -40,13 +44,30 @@ interface OrdersTableProps {
   orders: Order[];
 }
 
+const CATEGORIES = [
+  'iPhones',
+  'Other Phones',
+  'Smartwatch',
+  'Tablet',
+  'Laptop',
+] as const;
+
+const getDeviceCategory = (order: Order): string => {
+  const type = order.productType; // already uppercase from import
+  if (type === 'SMARTPHONE') {
+    return order.brand === 'APPLE' ? 'iPhones' : 'Other Phones';
+  }
+  if (type === 'SMARTWATCH') return 'Smartwatch';
+  if (type === 'TABLET') return 'Tablet';
+  if (type === 'LAPTOP') return 'Laptop';
+  return 'Other';
+};
+
 export function OrdersTable({ orders }: OrdersTableProps) {
   // filter arrays
   const [selectedPartners, setSelectedPartners] = useState<string[]>([]);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
-  const [totalStates, setTotalStates] = useState<string[]>(() =>
-    ALL_STATES.filter((s) => !EXCLUDED_FROM_TOTAL.includes(s))
-  );
+  const [totalStates, setTotalStates] = useState<string[]>(() =>ALL_STATES.filter((s) => s !== 'COMANDA_ANULATA'));
   const [arrivedStates, setArrivedStates] = useState<string[]>(() =>
     ALL_STATES.filter((s) => !EXCLUDED_FROM_ARRIVED.includes(s))
   );
@@ -57,12 +78,15 @@ export function OrdersTable({ orders }: OrdersTableProps) {
     () => Array.from(new Set(orders.map((o) => o.partner))).sort(),
     [orders]
   );
-
   const allMonths = useMemo(
     () => Array.from(new Set(orders.map((o) => o.month))).sort(),
     [orders]
   );
-
+  const formatMonth = (ym: string) => {
+    const [year, month] = ym.split('-');
+    const name = MONTH_NAMES[Number(month) - 1];
+    return name ? `${name} ${year}` : ym;
+  };
   // include any extra states that might appear in the csv
   const availableStates = useMemo(() => {
     const fromCsv = orders.map((o) => o.orderState).filter(Boolean);
@@ -83,19 +107,37 @@ export function OrdersTable({ orders }: OrdersTableProps) {
     setList(list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
   };
 
+  useEffect(() => {
+    setTotalStates((prev) => {
+      const merged = new Set([
+        ...prev,
+        ...availableStates.filter((s) => s !== 'COMANDA_ANULATA'),
+      ]);
+      return Array.from(merged);
+    });
+
+    setArrivedStates((prev) => {
+      const merged = new Set([
+        ...prev,
+        ...availableStates.filter((s) => !EXCLUDED_FROM_ARRIVED.includes(s)),
+      ]);
+      return Array.from(merged);
+    });
+  }, [availableStates]);
   // single 2D grid for both live preview and excel export
   const grid = useMemo(() => {
     const activeMonths = allMonths.filter((m) => selectedMonths.includes(m));
     const activePartners = allPartners.filter((p) => selectedPartners.includes(p));
 
-    // group counts by "partner__month"
+    // group counts by "partner__month__category"
     const counts = new Map<string, { total: number; arrived: number; accepted: number }>();
 
     for (const order of orders) {
       if (!selectedPartners.includes(order.partner)) continue;
       if (!selectedMonths.includes(order.month)) continue;
 
-      const key = `${order.partner}__${order.month}`;
+      const category = getDeviceCategory(order);
+      const key = `${order.partner}__${order.month}__${category}`;
       const current = counts.get(key) || { total: 0, arrived: 0, accepted: 0 };
 
       if (totalStates.includes(order.orderState)) current.total++;
@@ -105,15 +147,73 @@ export function OrdersTable({ orders }: OrdersTableProps) {
       counts.set(key, current);
     }
 
-    const headerRow = ['Partener', 'Month', 'Total Orders', 'Arrived Orders', 'Accepted Offers'];
+    const headerRow = [
+      'Partener',
+      'Month',
+      'Category',
+      'Total Orders',
+      'Arrived Orders',
+      'Accepted Offers',
+    ];
     const dataRows: (string | number)[][] = [];
 
     for (const partner of activePartners) {
-      for (const month of activeMonths) {
-        const row = counts.get(`${partner}__${month}`);
-        if (!row) continue;
+      let partnerSumTotal = 0;
+      let partnerSumArrived = 0;
+      let partnerSumAccepted = 0;
+      let hasAnyPartnerRows = false;
 
-        dataRows.push([partner, month, row.total, row.arrived, row.accepted]);
+      for (const month of activeMonths) {
+        const monthRows: (string | number)[][] = [];
+        let monthSumTotal = 0;
+        let monthSumArrived = 0;
+        let monthSumAccepted = 0;
+
+        for (const category of CATEGORIES) {
+          const row = counts.get(`${partner}__${month}__${category}`);
+          if (!row) continue;
+
+          monthRows.push([
+            partner,
+            formatMonth(month),
+            category,
+            row.total,
+            row.arrived,
+            row.accepted,
+          ]);
+
+          monthSumTotal += row.total;
+          monthSumArrived += row.arrived;
+          monthSumAccepted += row.accepted;
+        }
+
+        if (monthRows.length > 0) {
+          hasAnyPartnerRows = true;
+          dataRows.push(...monthRows);
+          dataRows.push([
+            partner,
+            formatMonth(month),
+            'TOTALS',
+            monthSumTotal,
+            monthSumArrived,
+            monthSumAccepted,
+          ]);
+
+          partnerSumTotal += monthSumTotal;
+          partnerSumArrived += monthSumArrived;
+          partnerSumAccepted += monthSumAccepted;
+        }
+      }
+
+      if (hasAnyPartnerRows) {
+        dataRows.push([
+          partner,
+          'ALL MONTHS',
+          'PARTNER TOTAL',
+          partnerSumTotal,
+          partnerSumArrived,
+          partnerSumAccepted,
+        ]);
       }
     }
 
@@ -199,7 +299,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
             <button
               type="button"
               onClick={() =>
-                setTotalStates(availableStates.filter((s) => !EXCLUDED_FROM_TOTAL.includes(s)))
+                setTotalStates(availableStates.filter((s) => s !== 'COMANDA_ANULATA'))
               }
               className="font-normal text-white/60"
             >
@@ -270,7 +370,9 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                 />
                 <span>{status}</span>
               </label>
-            ))}
+            ))}            
+            <p onClick={()=>console.log(grid)}>PRINT GRID</p>
+
           </div>
         </div>
       </div>
@@ -306,20 +408,34 @@ export function OrdersTable({ orders }: OrdersTableProps) {
             </tr>
           </thead>
           <tbody>
-            {grid.slice(1).map((row, rIdx) => (
-              <tr key={rIdx} className="hover:bg-blue-50/40">
-                {row.map((cell, cIdx) => (
-                  <td
-                    key={cIdx}
-                    className={`px-3 py-1.5 whitespace-nowrap border-b py-3 border-b-white/10 ${
-                      typeof cell === 'number' ? 'text-right tabular-nums' : ''
-                    }`}
-                  >
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {grid.slice(1).map((row, rIdx) => {
+              const isPartnerTotal = row[2] === 'PARTNER TOTAL';
+              const isMonthTotal = row[2] === 'TOTALS';
+
+              return (
+                <tr
+                  key={rIdx}
+                  className={
+                    isPartnerTotal
+                      ? 'bg-white/15 font-bold'
+                      : isMonthTotal
+                        ? 'bg-white/5 font-semibold'
+                        : 'hover:bg-blue-50/40'
+                  }
+                >
+                  {row.map((cell, cIdx) => (
+                    <td
+                      key={cIdx}
+                      className={`px-3 whitespace-nowrap border-b border-b-white/10 ${
+                        isPartnerTotal ? 'py-3.5 text-sm' : 'py-3'
+                      } ${typeof cell === 'number' ? 'text-right tabular-nums' : ''}`}
+                    >
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

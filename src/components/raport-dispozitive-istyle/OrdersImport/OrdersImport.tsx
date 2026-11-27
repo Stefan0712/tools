@@ -2,11 +2,13 @@ import { useState, type Dispatch, type SetStateAction } from 'react';
 import Papa from 'papaparse';
 
 export interface Order {
-  id: string;          // Sell ID
-  month: string;       // "YYYY-MM"
-  partner: string;     // Partener
-  orderState: string;  // Order State
-  offerStatus: string; // Offer Status (or "BLANK")
+  id: string;
+  month: string;
+  partner: string;
+  orderState: string;
+  offerStatus: string;
+  brand: string;
+  productType: string; 
 }
 
 interface OrdersImportProps {
@@ -48,6 +50,8 @@ export function OrdersImport({ setOrders }: OrdersImportProps) {
             partner,
             orderState,
             offerStatus: offerStatus || 'BLANK',
+            brand: String(row[6] || '').trim().toUpperCase(),
+            productType: String(row[9] || '').trim().toUpperCase(),
           });
         }
 
